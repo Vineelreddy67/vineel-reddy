@@ -1,0 +1,3 @@
+Your BODE calculation is completely made up. Even the pieces that you incorporated were done incorrectly.
+Risk is a numeric value and you came up with a string representation. Very difficult to create an average.
+So your data is not close to what was expected.
