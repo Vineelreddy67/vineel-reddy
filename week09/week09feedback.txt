@@ -1,1 +1,1 @@
-Can you explain why you opted for a Kernel Density plot?
+Removed
