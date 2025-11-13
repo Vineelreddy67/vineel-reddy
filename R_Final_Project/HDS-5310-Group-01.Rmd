@@ -1,0 +1,1569 @@
+---
+title: "FINAL PROJECT"
+output:
+  html_document:
+    df_print: paged
+---
+
+**Analytics and Statistical Programming**
+
+Group 1 : Vinay Matam, Praveen Thammaneni, Vineel Reddy Chittedi
+
+# Project and Data Details
+
+We will assess a clinical and lifestyle database regarding diabetes mellitus to discover the fundamental risk elements involved in its development. Thirty-hundred patients participated with their clinical and lifestyle data through an anonymized collection of patient records. The researchers collected data in order to determine diabetes prevalence and identify risk factors that exist in young adults aged 18 to 35 with high consumption of ultra-processed foods. Because of anonymization no time frame nor site for the study is indicated
+
+# Load Libraries
+
+```{r}
+#plot(cars)
+```
+
+```{r}
+#install.packages(c("dplyr", "ggplot2", "tidyr", "knitr", "kableExtra", "car", "randomForest", "pROC"))
+library(readr)   # For reading CSV files
+library(dplyr)
+library(ggplot2)
+library(tidyr)       # For gather/pivot if needed, though not explicitly used below
+library(knitr)       # For creating nice tables (optional for display)
+library(kableExtra)  # For enhancing kable tables (optional for display)
+library(car)         # For Levene's test
+library(randomForest)# For Random Forest model
+library(pROC)        # For ROC curve analysis (optional model evaluation)
+
+```
+Several relevant R libraries get loaded to help with the analysis tasks which include data processing and modeling and visualization needs. The CSV file gets efficiently loaded by the readr package while the dplyr collection delivers essential data manipulation capabilities. The plotting element included is ggplot2 while tidyr provides dataset reshaping functions when needed. The combination of knitr and kableExtra produces efficient and visually enhanced table presentation. The package includes car to carry out statistical tests that involve Levene's test for variance homogeneity. RandomForest serves machine learning purposes to construct predictive models and pROC allows performance evaluation through ROC curve assessment of the models. Various supporting libraries can be loaded at any time during the process to improve the workflow while maintaining complete analysis capabilities.
+
+# Reproducibility
+```{r}
+# Set seed for reproducibility of simulated data and random forest
+set.seed(123)
+
+```
+
+The set.seed(123) procedure activates a specific starting point for random number generation that produces identical results whenever the program executes. The seed assignment to 123 makes the analysis reproducible since all users who execute the code will get identical random outputs needed for data splitting and model training operations.
+
+# Load Dataset
+```{r}
+# Load the diabetes data
+diabetes_data <- read_csv("diabetes_data.csv")
+
+# View the first few rows to understand structure
+head(diabetes_data)
+
+```
+The diabetes dataset is loaded using read_csv(), and head(diabetes_data) displays the first few rows to quickly check its structure and contents. At initial glance we can say that there are more than ten features.
+
+```{r}
+# Show the structure of the dataset (features and their types)
+str(diabetes_data)
+
+```
+The str(diabetes_data) function provides a compact summary of the dataset, showing each feature's name, its data type, and a preview of its values to help understand the data structure quickly.
+
+The dataset contains a wide range of features, including numerical measurements like blood glucose levels, BMI, cholesterol, blood pressure, and kidney function markers, as well as categorical variables related to family history, lifestyle factors, and diabetes status.
+
+```{r}
+# Calculate and print the number of features (columns)
+num_features <- ncol(diabetes_data)
+paste("Number of features (columns) in the dataset:", num_features)
+
+```
+
+The number of features (columns) in the diabetes dataset is calculated using ncol(diabetes_data), and the result shows that there are a total of 36 features available for analysis.
+
+# Variables
+
+The dependent variable is Diabetes_Status (1 feature). The independent variables include Fasting_Blood_Glucose, Postprandial_Blood_Glucose, HbA1c, Random_Blood_Glucose, and others related to glucose, insulin, and metabolic health, making a total of 20 features. The covariates, including Age, Family_History_of_Diabetes, Gestational_Diabetes, PCOS, Hypertension, Physical_Activity, Smoking, Alcohol_Consumption, Obesity, Diet, and Sleep_Apnea, account for 11 features.
+
+# About Features
+
+```{r}
+# Print just the names of the variables
+names(diabetes_data)
+```
+
+## Numeric Factors for Diabetes Evaluation
+
+### Fasting Blood Glucose (FBG)
+- **Definition**: Blood glucose after fasting for at least 8 hours.
+- **Diagnostic Threshold**: ≥126 mg/dL (7.0 mmol/L) on two separate tests indicates diabetes.
+
+### Postprandial Blood Glucose (PPBG)
+- **Definition**: Blood glucose measured 2 hours after eating.
+- **Diagnostic Threshold**: ≥200 mg/dL (11.1 mmol/L) suggests diabetes.
+
+### Hemoglobin A1c (HbA1c)
+- **Definition**: Average blood glucose level over past 2–3 months.
+- **Diagnostic Threshold**: ≥6.5% indicates diabetes.
+
+### Random Blood Glucose Test
+- **Definition**: Blood glucose at any random time, regardless of meals.
+- **Diagnostic Threshold**: ≥200 mg/dL (11.1 mmol/L) with symptoms suggests diabetes.
+
+### Body Mass Index (BMI)
+- **Definition**: Measure of body fat based on height and weight.
+- **Risk Threshold**: BMI ≥30 is considered obese, increasing diabetes risk.
+
+### Waist Circumference
+- **Definition**: Measurement of abdominal fat.
+- **Risk Threshold**: >40 inches (men) or >35 inches (women) indicates higher risk.
+
+### Triglyceride Levels
+- **Definition**: Blood levels of triglycerides (a type of fat).
+- **Risk Threshold**: ≥150 mg/dL is considered high.
+
+### Blood Pressure
+- **Definition**: Force of blood against artery walls.
+- **Risk Threshold**: ≥140/90 mmHg is considered high.
+
+### Cholesterol Levels
+- **Definition**: Measures of LDL ("bad") and HDL ("good") cholesterol.
+- **Risk Factor**: High LDL and low HDL levels increase diabetes risk.
+
+### Age
+- **Definition**: Increasing age is a risk factor.
+- **Risk Threshold**: Risk rises significantly after 45 years.
+
+### C-Reactive Protein (CRP) Levels
+- **Definition**: Marker of body inflammation.
+- **Risk Threshold**: >3 mg/L indicates high risk.
+
+### Insulin Levels
+- **Definition**: Fasting insulin levels used to assess insulin resistance.
+- **Normal Range**: 2–25 µIU/mL.
+
+### Homeostatic Model Assessment of Insulin Resistance (HOMA-IR)
+- **Definition**: Quantifies insulin resistance and beta-cell function.
+- **Risk Threshold**: >2.9 suggests insulin resistance.
+
+### Oral Glucose Tolerance Test (OGTT)
+- **Definition**: Body’s glucose response after drinking a glucose solution.
+- **Diagnostic Threshold**: ≥200 mg/dL (11.1 mmol/L) after 2 hours indicates diabetes.
+
+### Creatinine Levels
+- **Definition**: Waste product measurement related to kidney function.
+- **Normal Range**: 
+  - Men: 0.6–1.2 mg/dL
+  - Women: 0.5–1.1 mg/dL
+
+### Estimated Glomerular Filtration Rate (eGFR)
+- **Definition**: Assesses kidney function.
+- **Risk Threshold**: <60 mL/min/1.73 m² indicates kidney disease.
+
+### Microalbuminuria
+- **Definition**: Measures albumin in urine.
+- **Risk Range**: 30–300 mg/g suggests early kidney disease.
+
+### Uric Acid Levels
+- **Definition**: Measurement of uric acid, associated with insulin resistance.
+- **Normal Range**:
+  - Men: 3.5–7.2 mg/dL
+  - Women: 2.6–6.0 mg/dL
+
+### Fructosamine Levels
+- **Definition**: Average blood glucose over past 2–3 weeks.
+- **Normal Range**: 200–285 µmol/L.
+
+### Liver Enzymes (ALT and AST)
+- **Definition**: Liver function indicators; linked to fatty liver disease and diabetes.
+- **Normal Ranges**:
+  - ALT: 7–56 units/L
+  - AST: 10–40 units/L
+
+### Beta-Cell Function (C-Peptide Test)
+- **Definition**: Measures insulin production capability.
+- **Normal Range**: 0.5–2.0 ng/mL.
+
+### Proinsulin Levels
+- **Definition**: Elevated levels indicate beta-cell dysfunction.
+- **Normal Level**: <10 pmol/L.
+
+## Binary (Yes/No) Factors for Diabetes Risk
+
+### Family History of Diabetes
+- **Yes**: Family history present.
+- **No**: Family history absent.
+
+### Gestational Diabetes
+- **Yes**: History of diabetes during pregnancy.
+- **No**: No history of gestational diabetes.
+
+### Polycystic Ovary Syndrome (PCOS)
+- **Yes**: Diagnosed with PCOS.
+- **No**: Not diagnosed with PCOS.
+
+### Hypertension (High Blood Pressure)
+- **Yes**: Diagnosed with high blood pressure.
+- **No**: No diagnosis of hypertension.
+
+### Physical Activity Level
+- **Yes**: Engages in regular physical activity.
+- **No**: Sedentary lifestyle.
+
+### Smoking
+- **Yes**: Current smoker.
+- **No**: Non-smoker.
+
+### Alcohol Consumption
+- **Yes**: Excessive alcohol consumption.
+- **No**: No excessive alcohol consumption.
+
+### Obesity
+- **Yes**: Clinically obese (based on BMI).
+- **No**: Not clinically obese.
+
+### Diet
+- **Yes**: Unhealthy diet high in sugar and processed foods.
+- **No**: Healthy diet.
+
+### Sleep Apnea
+- **Yes**: Diagnosed with sleep apnea.
+- **No**: No sleep apnea diagnosis.
+
+# Data Management
+
+```{r}
+# Check for missing values
+print("Missing values before handling:")
+colSums(is.na(diabetes_data))
+
+# Handle Missing Data (Listwise deletion as <5%)
+diabetes_df <- na.omit(diabetes_data)
+print(paste("Dimensions after removing missing data:", dim(diabetes_df)[1], "rows,", dim(diabetes_df)[2], "columns"))
+# Reset N for reporting based on actual data after cleaning
+N_final <- nrow(diabetes_df)
+```
+No missing variables.
+
+```{r}
+head(diabetes_df)
+```
+
+```{r}
+# Drop the first column
+diabetes_df <- diabetes_df %>% select(-`...1`)
+```
+
+We are dropping the first column because it simply indicates the row number and is not an actual feature needed for the analysis.
+
+```{R}
+# Boxplot for Fasting Blood Glucose
+ggplot(diabetes_data, aes(y = Fasting_Blood_Glucose)) +
+  geom_boxplot(fill = "lightblue", color = "darkblue") +
+  labs(title = "Boxplot of Fasting Blood Glucose", y = "Fasting Blood Glucose (mg/dL)") +
+  theme_minimal()
+
+# Boxplot for BMI
+ggplot(diabetes_data, aes(y = BMI)) +
+  geom_boxplot(fill = "lightgreen", color = "darkgreen") +
+  labs(title = "Boxplot of BMI", y = "BMI (kg/m²)") +
+  theme_minimal()
+
+```
+
+No outliers for above variables.
+
+```{r}
+# Identify and Winsorize Outliers for continuous variables
+winsorize_variable <- function(x, lower_perc = 0.05, upper_perc = 0.95) {
+  lower_bound <- quantile(x, lower_perc, na.rm = TRUE)
+  upper_bound <- quantile(x, upper_perc, na.rm = TRUE)
+  x_winsorized <- pmax(lower_bound, pmin(upper_bound, x))
+  return(x_winsorized)
+}
+
+# Check outliers using Z-score (optional visualization/count)
+z_scores_bmi <- scale(diabetes_df$BMI)
+print(paste("Number of BMI outliers (|Z| > 3):", sum(abs(z_scores_bmi) > 3)))
+z_scores_glucose <- scale(diabetes_df$Fasting_Blood_Glucose)
+print(paste("Number of Glucose outliers (|Z| > 3):", sum(abs(z_scores_glucose) > 3)))
+
+# Apply Winsorization
+diabetes_df$BMI_winsorized <- winsorize_variable(diabetes_df$BMI)
+diabetes_df$Fasting_Blood_Glucose_winsorized <- winsorize_variable(diabetes_df$Fasting_Blood_Glucose)
+
+```
+Still little to no outliers so not dealing with them.
+
+```{r}
+# Check Small Group Sizes for categorical variables
+categorical_vars <- c("Physical_Activity", "Family_History_of_Diabetes", "Hypertension", "Diet", "Smoking", "Diabetes_Status")
+print("Checking for small categories (<10 obs):")
+small_groups_found <- FALSE
+for (var in categorical_vars) {
+  counts <- table(diabetes_df[[var]])
+  print(paste("Variable:", var))
+  print(counts)
+  if (any(counts < 10)) {
+    print(paste("WARNING: Small group found in", var))
+    small_groups_found <- TRUE
+  }
+}
+if (!small_groups_found) {
+  print("All categorical variables have sufficient group sizes (>=10).")
+}
+```
+
+# Descriptive Statistics
+
+We will not do statistical analysis on all variables(36 of them) so we are only interested in some of the features.
+
+```{r}
+
+# Initialize Table 1
+# Initialize Table 1
+table1_rows <- list()
+
+# Function to calculate and format stats
+calculate_and_format <- function(var_name, stat_type) {
+  if (!var_name %in% names(diabetes_df)) return("Variable Missing")
+  data_vec <- diabetes_df[[var_name]]
+  
+  if (stat_type == "count") {
+    if (!is.factor(data_vec) && !is.character(data_vec)) return("Not Categorical")
+    counts <- table(data_vec, useNA = "ifany")
+    return(as.list(counts))
+    
+  } else if (stat_type == "mean_sd") {
+    if (!is.numeric(data_vec)) return("Not Numeric")
+    mean_val <- round(mean(data_vec, na.rm = TRUE), 1)
+    sd_val <- round(sd(data_vec, na.rm = TRUE), 1)
+    return(paste0(mean_val, " (", sd_val, ")"))
+    
+  } else if (stat_type == "median_iqr") {
+    if (!is.numeric(data_vec)) return("Not Numeric")
+    med <- round(median(data_vec, na.rm = TRUE), 1)
+    iqr <- quantile(data_vec, probs = c(0.25, 0.75), na.rm = TRUE)
+    return(paste0(med, " (", round(iqr[1], 1), "-", round(iqr[2], 1), ")"))
+    
+  } else if (stat_type == "min_max") {
+    if (!is.numeric(data_vec)) return("Not Numeric")
+    return(paste0(round(min(data_vec, na.rm = TRUE), 1), ", ", round(max(data_vec, na.rm = TRUE), 1)))
+  }
+  return("Unknown Stat Type")
+}
+
+# Add continuous variables
+cont_vars <- c("BMI", "Fasting_Blood_Glucose")
+cont_labels <- c("BMI (kg/m²)", "Fasting Blood Glucose (mg/dL)")
+
+for (i in seq_along(cont_vars)) {
+  var <- cont_vars[i]
+  label <- cont_labels[i]
+  
+  table1_rows[[length(table1_rows) + 1]] <- list(Variable = label, Statistic = "Mean (SD)", Value = calculate_and_format(var, "mean_sd"))
+  table1_rows[[length(table1_rows) + 1]] <- list(Variable = "", Statistic = "Median (IQR)", Value = calculate_and_format(var, "median_iqr"))
+  table1_rows[[length(table1_rows) + 1]] <- list(Variable = "", Statistic = "Min, Max", Value = calculate_and_format(var, "min_max"))
+}
+
+# Add categorical variables with Yes/No or Positive/Negative counts
+cat_vars <- c("Diabetes_Status", "Physical_Activity", "Family_History_of_Diabetes",
+              "Hypertension", "Diet", "Smoking")
+cat_labels <- c("Diabetes Status", "Physical Activity", "Family History of Diabetes",
+                "Hypertension", "Diet", "Smoking")
+
+for (i in seq_along(cat_vars)) {
+  var <- cat_vars[i]
+  label <- cat_labels[i]
+  
+  table1_rows[[length(table1_rows) + 1]] <- list(Variable = label, Statistic = "Count", Value = "")
+  counts <- calculate_and_format(var, "count")
+  
+  if (is.list(counts)) {
+    for (lvl in names(counts)) {
+      table1_rows[[length(table1_rows) + 1]] <- list(
+        Variable = paste0("  ", lvl),
+        Statistic = "Count",
+        Value = counts[[lvl]]
+      )
+    }
+  } else {
+    table1_rows[[length(table1_rows) + 1]] <- list(
+      Variable = "  (Error)",
+      Statistic = "Count",
+      Value = counts
+    )
+  }
+}
+
+# Convert to data frame
+table1_df <- do.call(rbind.data.frame, table1_rows)
+rownames(table1_df) <- NULL
+names(table1_df) <- c("Variable", "Statistic", "Value")
+
+# Print Table 1
+print("--- Table 1: Descriptive Statistics ---")
+print(table1_df)
+
+
+
+```
+Results showed that diagnosis of diabetes was positive in 55.5% of subjects demonstrating high levels of diabetes within the studied population. The studied group exhibited an average BMI of 29.2 kg/m² which places members in the overweight bracket yet spans from underweight to obese categories. Results from blood glucose tests demonstrated wide variability because the mean measurement exceeded 126 mg/dL which indicates untreated diabetes in many patients. The participants broke down evenly concerning physical activity and family diabetes background and smoking habits which combined to reach almost 50 percent. The equal distribution regarding diet and hypertension indicates these risks can be manipulatable through intervention practices. Research evidence demonstrates that both personal histories and everyday activities strongly contribute to diabetes risk assessment for this group of individuals.
+
+# Bivariate Analysis
+
+```{r}
+# --- 5. Bivariate Analysis (Table 2) ---
+
+print("--- Running Bivariate Analyses ---")
+results_list <- list() # Store results for Table 2
+
+# 5.1 Chi-Squared Tests Function (with added checks)
+run_chisq <- function(var1_name, var2_name, display_name) {
+    print(paste("--- Chi-Squared: ", display_name, " ---"))
+
+    # --- Pre-Check Diagnostics ---
+    var1_exists <- var1_name %in% names(diabetes_df)
+    var2_exists <- var2_name %in% names(diabetes_df)
+    print(paste("Checking vars:", var1_name, "(Exists:", var1_exists, ") vs", var2_name, "(Exists:", var2_exists, ")"))
+
+    if (!var1_exists || !var2_exists) {
+        print("Error: One or both variables not found.")
+        return(list(Test="Chi-Squared", Variable_Pair=display_name, Statistic="Error: Var Missing", p_value="Error"))
+    }
+
+    var1_class <- class(diabetes_df[[var1_name]])
+    var2_class <- class(diabetes_df[[var2_name]])
+    print(paste(var1_name, "Class:", var1_class, ";", var2_name, "Class:", var2_class))
+
+    var1_is_factor <- is.factor(diabetes_df[[var1_name]])
+    var2_is_factor <- is.factor(diabetes_df[[var2_name]])
+
+    if (!var1_is_factor || !var2_is_factor) {
+         print("Error: One or both variables are not factors.")
+         # Attempt to convert just for this test if they seem convertible (e.g., character)
+         # Be cautious with this auto-conversion - better to fix earlier
+         temp_df <- diabetes_df # Work on a copy
+         if (!var1_is_factor && is.character(temp_df[[var1_name]])) {
+             print(paste("Attempting temporary factor conversion for", var1_name))
+             temp_df[[var1_name]] <- factor(temp_df[[var1_name]])
+             var1_is_factor = TRUE # Update flag
+         }
+         if (!var2_is_factor && is.character(temp_df[[var2_name]])) {
+             print(paste("Attempting temporary factor conversion for", var2_name))
+             temp_df[[var2_name]] <- factor(temp_df[[var2_name]])
+             var2_is_factor = TRUE # Update flag
+         }
+         # If still not factors, return error
+         if (!var1_is_factor || !var2_is_factor){
+            return(list(Test="Chi-Squared", Variable_Pair=display_name, Statistic="Error: Not Factor", p_value="Error"))
+         }
+         # If conversion happened, use temp_df, otherwise use original diabetes_df
+         df_to_use <- temp_df
+    } else {
+        df_to_use <- diabetes_df # Use original if already factors
+    }
+
+
+    # Check for sufficient levels AFTER potential conversion
+    var1_nlevels <- nlevels(df_to_use[[var1_name]])
+    var2_nlevels <- nlevels(df_to_use[[var2_name]])
+    print(paste(var1_name, "Levels:", var1_nlevels, ";", var2_name, "Levels:", var2_nlevels))
+    print(paste("Levels for", var1_name, ":", paste(levels(df_to_use[[var1_name]]), collapse=", ")))
+    print(paste("Levels for", var2_name, ":", paste(levels(df_to_use[[var2_name]]), collapse=", ")))
+
+
+    if (var1_nlevels < 2 || var2_nlevels < 2) {
+         print("Error: One or both variables have fewer than 2 levels after ensuring factor type.")
+         return(list(Test="Chi-Squared", Variable_Pair=display_name, Statistic="Error: <2 Levels", p_value="Error"))
+    }
+
+    # --- End Pre-Check ---
+
+    # Create contingency table using the potentially modified df_to_use
+    tbl <- table(df_to_use[[var1_name]], df_to_use[[var2_name]])
+    print("Observed Table:")
+    print(tbl)
+
+    # Prevent test if table dimensions are problematic (e.g., all zeros in a row/col)
+    if(any(rowSums(tbl) == 0) || any(colSums(tbl) == 0)){
+        print("Error: Table contains row/column with all zeros. Cannot perform test.")
+        return(list(Test="Chi-Squared", Variable_Pair=display_name, Statistic="Error: Zero Row/Col", p_value="Error"))
+    }
+
+    # Run Chi-Squared Test with error/warning handling
+    test_result <- tryCatch({ chisq.test(tbl) },
+                            warning = function(w) { print(paste("Warning:", w$message)); suppressWarnings(chisq.test(tbl)) },
+                            error = function(e) { print(paste("Error:", e$message)); return(NULL) })
+
+    if(is.null(test_result)){ return(list(Test="Chi-Squared", Variable_Pair=display_name, Statistic="Error: Test Failed", p_value="Error"))}
+
+    # Check Assumptions
+    expected_counts <- test_result$expected
+    print("Expected Counts:")
+    print(round(expected_counts, 1))
+    min_expected <- min(expected_counts)
+    percent_below_5 <- mean(expected_counts < 5) * 100
+    print(paste("Minimum expected count:", round(min_expected, 2)))
+    print(paste("Percentage of cells with expected count < 5:", round(percent_below_5, 1), "%"))
+
+    assumption_met <- (percent_below_5 < 20 && min_expected >= 1)
+
+    # Prepare Results
+    test_to_report <- "Chi-Squared"
+    statistic_string <- paste0("χ²(", test_result$parameter, ") = ", round(test_result$statistic, 1))
+    p_value_formatted <- format.pval(test_result$p.value, digits = 3, eps = 0.001)
+
+    # Use Fisher's Exact Test if assumptions violated for 2x2 table
+    if (!assumption_met && nrow(tbl) == 2 && ncol(tbl) == 2) {
+        print("Chi-squared assumption violated, attempting Fisher's Exact Test...")
+        fisher_result <- tryCatch({ fisher.test(tbl) }, error = function(e){ print(paste("Fisher's test error:", e$message)); return(NULL) })
+        if(!is.null(fisher_result)){
+             test_to_report <- "Fisher's Exact"
+             statistic_string <- "N/A"
+             p_value_formatted <- format.pval(fisher_result$p.value, digits = 3, eps = 0.001)
+             print("Using Fisher's Exact Test result.")
+        } else { print("Fisher's test failed, reporting Chi-squared with caution.") }
+    } else if (!assumption_met) { print("Chi-squared assumption violated. Report with caution.") }
+
+    # Report residuals if Chi-Squared test was used and significant
+    if(test_to_report == "Chi-Squared" && !is.na(test_result$p.value) && test_result$p.value < 0.05){
+        print("Pearson Residuals (indicator for post-hoc):")
+        print(round(test_result$residuals, 2))
+    }
+    return(list(Test=test_to_report, Variable_Pair=display_name, Statistic=statistic_string, p_value=p_value_formatted))
+}
+
+
+# 5.2 T-Tests / Mann-Whitney U Tests Function (remains the same as previous version)
+run_cont_vs_cat <- function(cont_var_name, cat_var_name, display_name) {
+    print(paste("--- Comparison: ", display_name, " ---"))
+    # Initial Checks
+    if (!all(c(cont_var_name, cat_var_name) %in% names(diabetes_df))) {
+        print("Error: One or both variables not found.")
+        return(list(Test="Error", Variable_Pair=display_name, Statistic="Error: Var Missing", p_value="Error"))
+    }
+    if (!is.numeric(diabetes_df[[cont_var_name]])) {
+        print(paste("Error:", cont_var_name, "is not numeric. Class:", class(diabetes_df[[cont_var_name]])))
+        return(list(Test="Error", Variable_Pair=display_name, Statistic="Error: Not Numeric", p_value="Error"))
+    }
+    if (!is.factor(diabetes_df[[cat_var_name]])) {
+         print(paste("Error:", cat_var_name, "is not a factor. Class:", class(diabetes_df[[cat_var_name]])))
+         return(list(Test="Error", Variable_Pair=display_name, Statistic="Error: Not Factor", p_value="Error"))
+    }
+    if (nlevels(diabetes_df[[cat_var_name]]) != 2) {
+        print(paste("Error:", cat_var_name, "does not have exactly 2 levels. Levels found:", paste(levels(diabetes_df[[cat_var_name]]), collapse=", "), "(N=", nlevels(diabetes_df[[cat_var_name]]), ")"))
+        return(list(Test="Error", Variable_Pair=display_name, Statistic="Error: Not 2 Levels", p_value="Error"))
+    }
+
+    formula <- as.formula(paste(cont_var_name, "~", cat_var_name))
+
+    # Check Normality (Shapiro-Wilk - maybe unreliable for large N, supplement with plots)
+    normality_p_values <- tryCatch({
+        tapply(diabetes_df[[cont_var_name]], diabetes_df[[cat_var_name]], function(x) {
+            if (length(unique(na.omit(x))) < 3 || length(na.omit(x)) < 3) return(NA)
+             shapiro.test(x)$p.value
+            })
+    }, error=function(e){print(paste("Shapiro test failed:", e$message)); return(c(NA, NA))})
+    print("Shapiro-Wilk Normality p-values by group (NA if test failed/inapplicable):")
+    print(round(normality_p_values, 3))
+    normality_met <- all(!is.na(normality_p_values)) && all(normality_p_values > 0.05)
+
+    # Check Homogeneity of Variances (Levene's Test)
+    levene_result <- tryCatch({ leveneTest(formula, data = diabetes_df) },
+                              error = function(e) { print(paste("Levene's test failed:", e$message)); return(NULL)})
+    if (is.null(levene_result)) {
+        print("Assuming unequal variances due to Levene's test error.")
+        variances_equal <- FALSE
+        levene_p <- NA
+    } else {
+        levene_p <- levene_result$`Pr(>F)`[1]
+        print(paste("Levene's Test p-value:", round(levene_p, 3)))
+        variances_equal <- !is.na(levene_p) && levene_p > 0.05
+    }
+
+    # Decide and Perform Test
+    test_to_report <- ""
+    statistic_string <- ""
+    p_value_formatted <- ""
+    test_result <- NULL
+
+    if (normality_met) {
+        print("Normality assumption met (based on Shapiro p > 0.05).")
+        if (variances_equal) {
+            print("Variances are equal. Performing standard t-test.")
+            test_result <- tryCatch(t.test(formula, data = diabetes_df, var.equal = TRUE), error=function(e) {print(paste("t-test error:", e$message)); NULL})
+            test_to_report <- "t-Test (Equal Var)"
+        } else {
+            print("Variances are unequal. Performing Welch's t-test.")
+            test_result <- tryCatch(t.test(formula, data = diabetes_df, var.equal = FALSE), error=function(e) {print(paste("Welch t-test error:", e$message)); NULL})
+            test_to_report <- "t-Test (Welch)"
+        }
+        if (!is.null(test_result)) {
+             statistic_string <- paste0("t(", round(test_result$parameter, ifelse(grepl("Welch", test_to_report), 1, 0)), ") = ", round(test_result$statistic, 1))
+             p_value_formatted <- format.pval(test_result$p.value, digits = 3, eps = 0.001)
+        }
+    } else {
+        print("Normality assumption potentially violated (Shapiro p <= 0.05 or test failed). Performing Mann-Whitney U test.")
+        test_result <- tryCatch(wilcox.test(formula, data = diabetes_df), error=function(e) {print(paste("Wilcoxon test error:", e$message)); NULL})
+        test_to_report <- "Mann-Whitney U"
+        if (!is.null(test_result)) {
+            statistic_string <- paste0("W = ", test_result$statistic)
+            p_value_formatted <- format.pval(test_result$p.value, digits = 3, eps = 0.001)
+        }
+    }
+
+    if (is.null(test_result)) {
+        print("Statistical test failed to execute.")
+        return(list(Test=test_to_report, Variable_Pair=display_name, Statistic="Error: Test Failed", p_value="Error"))
+    }
+
+    return(list(Test=test_to_report, Variable_Pair=display_name, Statistic=statistic_string, p_value=p_value_formatted))
+}
+
+# --- Add Pre-Checks before running Bivariate tests ---
+print("--- Verifying variable status before Bivariate Analysis ---")
+bivariate_vars <- c("Diabetes_Status", "Physical_Activity", "Family_History_of_Diabetes",
+                   "Hypertension", "Diet", "Smoking", "BMI", "Fasting_Blood_Glucose")
+for(v in bivariate_vars){
+     if (v %in% names(diabetes_df)) {
+         print(paste(v, "- Class:", class(diabetes_df[[v]])))
+         if(is.factor(diabetes_df[[v]])){
+             print(paste("  Levels:", paste(levels(diabetes_df[[v]]), collapse=", "), "(N=", nlevels(diabetes_df[[v]]), ")"))
+             print("  Table:")
+             print(table(diabetes_df[[v]])) # Show counts per level
+         } else if (is.numeric(diabetes_df[[v]])) {
+             print(paste("  Summary:", paste(round(summary(diabetes_df[[v]]), 2), collapse=" / ")))
+         }
+     } else {
+         print(paste(v, "- COLUMN NOT FOUND in diabetes_df."))
+     }
+}
+print("--- End of Variable Verification ---")
+
+
+# --- Execute Bivariate Tests ---
+
+# Run Chi-Squared tests
+results_list <- c(results_list, list(run_chisq("Diabetes_Status", "Physical_Activity", "Diabetes_Status vs. Physical_Activity")))
+results_list <- c(results_list, list(run_chisq("Diabetes_Status", "Family_History_of_Diabetes", "Diabetes_Status vs. Family_History_of_Diabetes")))
+results_list <- c(results_list, list(run_chisq("Diabetes_Status", "Hypertension", "Diabetes_Status vs. Hypertension")))
+results_list <- c(results_list, list(run_chisq("Diabetes_Status", "Diet", "Diabetes_Status vs. Diet")))
+results_list <- c(results_list, list(run_chisq("Diabetes_Status", "Smoking", "Diabetes_Status vs. Smoking")))
+
+# Run tests for continuous variables vs Diabetes_Status
+results_list <- c(results_list, list(run_cont_vs_cat("BMI", "Diabetes_Status", "BMI by Diabetes_Status")))
+results_list <- c(results_list, list(run_cont_vs_cat("Fasting_Blood_Glucose", "Diabetes_Status", "Fasting_Blood_Glucose by Diabetes_Status")))
+
+
+# --- Combine Bivariate Results into Table 2 ---
+if (length(results_list) > 0) {
+    # Filter out any potential NULL entries if a function returned NULL completely
+    results_list_clean <- results_list[!sapply(results_list, is.null)]
+    if(length(results_list_clean) > 0) {
+        # Convert list of lists to data frame
+        table2_data <- do.call(rbind.data.frame, results_list_clean)
+        # Ensure column names are correct
+        names(table2_data) <- c("Test", "Variable Pair", "Statistic", "p-value")
+        # Display Table 2
+        print("--- Bivariate Analysis Table 2 ---")
+        print(table2_data)
+    } else {
+        print("Could not generate Table 2 data - all bivariate tests failed or returned NULL.")
+    }
+} else {
+    print("Could not generate Table 2 data - results list is empty.")
+}
+
+```
+The explanation is in the next section,
+
+# Bivariate Analysis (t-tests)
+```{R}
+# --- 5. Bivariate Analysis (Table 2) ---
+
+print("--- Running Bivariate Analyses ---")
+results_list <- list() # Store results for Table 2
+
+# 5.1 Chi-Squared Tests Function (with added checks)
+run_chisq <- function(var1_name, var2_name, display_name) {
+    print(paste("--- Chi-Squared: ", display_name, " ---"))
+
+    # --- Pre-Check Diagnostics ---
+    var1_exists <- var1_name %in% names(diabetes_df)
+    var2_exists <- var2_name %in% names(diabetes_df)
+    print(paste("Checking vars:", var1_name, "(Exists:", var1_exists, ") vs", var2_name, "(Exists:", var2_exists, ")"))
+
+    if (!var1_exists || !var2_exists) {
+        print("Error: One or both variables not found.")
+        return(list(Test="Chi-Squared", Variable_Pair=display_name, Statistic="Error: Var Missing", p_value="Error"))
+    }
+
+    var1_class <- class(diabetes_df[[var1_name]])
+    var2_class <- class(diabetes_df[[var2_name]])
+    print(paste(var1_name, "Class:", var1_class, ";", var2_name, "Class:", var2_class))
+
+    var1_is_factor <- is.factor(diabetes_df[[var1_name]])
+    var2_is_factor <- is.factor(diabetes_df[[var2_name]])
+
+    if (!var1_is_factor || !var2_is_factor) {
+         print("Error: One or both variables are not factors.")
+         # Attempt to convert just for this test if they seem convertible (e.g., character)
+         temp_df <- diabetes_df # Work on a copy
+         if (!var1_is_factor && is.character(temp_df[[var1_name]])) {
+             print(paste("Attempting temporary factor conversion for", var1_name))
+             temp_df[[var1_name]] <- factor(temp_df[[var1_name]])
+             var1_is_factor = TRUE
+         }
+         if (!var2_is_factor && is.character(temp_df[[var2_name]])) {
+             print(paste("Attempting temporary factor conversion for", var2_name))
+             temp_df[[var2_name]] <- factor(temp_df[[var2_name]])
+             var2_is_factor = TRUE
+         }
+         if (!var1_is_factor || !var2_is_factor){
+            return(list(Test="Chi-Squared", Variable_Pair=display_name, Statistic="Error: Not Factor", p_value="Error"))
+         }
+         df_to_use <- temp_df
+    } else {
+        df_to_use <- diabetes_df
+    }
+
+    var1_nlevels <- nlevels(df_to_use[[var1_name]])
+    var2_nlevels <- nlevels(df_to_use[[var2_name]])
+    print(paste(var1_name, "Levels:", var1_nlevels, ";", var2_name, "Levels:", var2_nlevels))
+    print(paste("Levels for", var1_name, ":", paste(levels(df_to_use[[var1_name]]), collapse=", ")))
+    print(paste("Levels for", var2_name, ":", paste(levels(df_to_use[[var2_name]]), collapse=", ")))
+
+    if (var1_nlevels < 2 || var2_nlevels < 2) {
+         print("Error: One or both variables have fewer than 2 levels after ensuring factor type.")
+         return(list(Test="Chi-Squared", Variable_Pair=display_name, Statistic="Error: <2 Levels", p_value="Error"))
+    }
+    # --- End Pre-Check ---
+
+    tbl <- table(df_to_use[[var1_name]], df_to_use[[var2_name]])
+    print("Observed Table:")
+    print(tbl)
+
+    if(any(rowSums(tbl) == 0) || any(colSums(tbl) == 0)){
+        print("Error: Table contains row/column with all zeros. Cannot perform test.")
+        return(list(Test="Chi-Squared", Variable_Pair=display_name, Statistic="Error: Zero Row/Col", p_value="Error"))
+    }
+
+    test_result <- tryCatch({ chisq.test(tbl) },
+                            warning = function(w) { print(paste("Warning:", w$message)); suppressWarnings(chisq.test(tbl)) },
+                            error = function(e) { print(paste("Error:", e$message)); return(NULL) })
+
+    if(is.null(test_result)){ return(list(Test="Chi-Squared", Variable_Pair=display_name, Statistic="Error: Test Failed", p_value="Error"))}
+
+    expected_counts <- test_result$expected
+    print("Expected Counts:")
+    print(round(expected_counts, 1))
+    min_expected <- min(expected_counts)
+    percent_below_5 <- mean(expected_counts < 5) * 100
+    print(paste("Minimum expected count:", round(min_expected, 2)))
+    print(paste("Percentage of cells with expected count < 5:", round(percent_below_5, 1), "%"))
+
+    assumption_met <- (percent_below_5 < 20 && min_expected >= 1)
+
+    test_to_report <- "Chi-Squared"
+    statistic_string <- paste0("χ²(", test_result$parameter, ") = ", round(test_result$statistic, 1))
+    p_value_formatted <- format.pval(test_result$p.value, digits = 3, eps = 0.001)
+
+    if (!assumption_met && nrow(tbl) == 2 && ncol(tbl) == 2) {
+        print("Chi-squared assumption violated, attempting Fisher's Exact Test...")
+        fisher_result <- tryCatch({ fisher.test(tbl) }, error = function(e){ print(paste("Fisher's test error:", e$message)); return(NULL) })
+        if(!is.null(fisher_result)){
+             test_to_report <- "Fisher's Exact"
+             statistic_string <- "N/A"
+             p_value_formatted <- format.pval(fisher_result$p.value, digits = 3, eps = 0.001)
+             print("Using Fisher's Exact Test result.")
+        } else { print("Fisher's test failed, reporting Chi-squared with caution.") }
+    } else if (!assumption_met) { print("Chi-squared assumption violated. Report with caution.") }
+
+    if(test_to_report == "Chi-Squared" && !is.na(test_result$p.value) && test_result$p.value < 0.05){
+        print("Pearson Residuals (indicator for post-hoc):")
+        print(round(test_result$residuals, 2))
+    }
+    return(list(Test=test_to_report, Variable_Pair=display_name, Statistic=statistic_string, p_value=p_value_formatted))
+}
+
+
+# 5.2 T-Tests / Welch's T-Tests Function (Revised Logic - Ignores Shapiro, uses Levene)
+run_cont_vs_cat <- function(cont_var_name, cat_var_name, display_name) {
+    print(paste("--- Comparison: ", display_name, " ---"))
+    # Initial Checks
+    if (!all(c(cont_var_name, cat_var_name) %in% names(diabetes_df))) {
+        print("Error: One or both variables not found.")
+        return(list(Test="Error", Variable_Pair=display_name, Statistic="Error: Var Missing", p_value="Error"))
+    }
+    if (!is.numeric(diabetes_df[[cont_var_name]])) {
+        print(paste("Error:", cont_var_name, "is not numeric. Class:", class(diabetes_df[[cont_var_name]])))
+        return(list(Test="Error", Variable_Pair=display_name, Statistic="Error: Not Numeric", p_value="Error"))
+    }
+    if (!is.factor(diabetes_df[[cat_var_name]])) {
+         print(paste("Error:", cat_var_name, "is not a factor. Class:", class(diabetes_df[[cat_var_name]])))
+         return(list(Test="Error", Variable_Pair=display_name, Statistic="Error: Not Factor", p_value="Error"))
+    }
+    if (nlevels(diabetes_df[[cat_var_name]]) != 2) {
+        print(paste("Error:", cat_var_name, "does not have exactly 2 levels. Levels found:", paste(levels(diabetes_df[[cat_var_name]]), collapse=", "), "(N=", nlevels(diabetes_df[[cat_var_name]]), ")"))
+        return(list(Test="Error", Variable_Pair=display_name, Statistic="Error: Not 2 Levels", p_value="Error"))
+    }
+
+    formula <- as.formula(paste(cont_var_name, "~", cat_var_name))
+
+    # Check Normality (Shapiro-Wilk) - FOR INFORMATION ONLY
+    normality_p_values <- tryCatch({
+        tapply(diabetes_df[[cont_var_name]], diabetes_df[[cat_var_name]], function(x) {
+            if (length(unique(na.omit(x))) < 3 || length(na.omit(x)) < 3) return(NA)
+             shapiro.test(x)$p.value
+            })
+    }, error=function(e){print(paste("Shapiro test failed:", e$message)); return(c(NA, NA))})
+    print("Shapiro-Wilk Normality p-values by group (NA if test failed/inapplicable):")
+    print(round(normality_p_values, 3))
+    normality_met_flag <- all(!is.na(normality_p_values)) && all(normality_p_values > 0.05) # Check if it PASSED
+    if (!normality_met_flag) {
+        print("NOTE: Shapiro test indicates non-normality, but proceeding with t-test due to large N assumption (CLT).")
+    } else {
+         print("NOTE: Shapiro test does not indicate significant non-normality.")
+    }
+
+    # Check Homogeneity of Variances (Levene's Test) - USED TO DECIDE t-test type
+    levene_result <- tryCatch({ leveneTest(formula, data = diabetes_df) },
+                              error = function(e) { print(paste("Levene's test failed:", e$message)); return(NULL)})
+    if (is.null(levene_result)) {
+        print("Assuming unequal variances due to Levene's test error.")
+        variances_equal <- FALSE
+        levene_p <- NA
+    } else {
+        levene_p <- levene_result$`Pr(>F)`[1]
+        print(paste("Levene's Test p-value:", round(levene_p, 3)))
+        variances_equal <- !is.na(levene_p) && levene_p > 0.05
+    }
+
+    # Always perform a t-test, choose type based on Levene's test
+    test_to_report <- ""
+    statistic_string <- ""
+    p_value_formatted <- ""
+    test_result <- NULL
+
+    if (variances_equal) {
+        print("Variances assumed equal (Levene's p > 0.05 or test failed). Performing standard t-test.")
+        test_result <- tryCatch(t.test(formula, data = diabetes_df, var.equal = TRUE), error=function(e) {print(paste("t-test error:", e$message)); NULL})
+        test_to_report <- "t-Test (Equal Var)"
+         if (!is.null(test_result)) {
+             statistic_string <- paste0("t(", round(test_result$parameter, 0), ") = ", round(test_result$statistic, 1))
+             p_value_formatted <- format.pval(test_result$p.value, digits = 3, eps = 0.001)
+         }
+    } else {
+        print("Variances assumed unequal (Levene's p <= 0.05). Performing Welch's t-test.")
+        test_result <- tryCatch(t.test(formula, data = diabetes_df, var.equal = FALSE), error=function(e) {print(paste("Welch t-test error:", e$message)); NULL})
+        test_to_report <- "t-Test (Welch)"
+         if (!is.null(test_result)) {
+             statistic_string <- paste0("t(", round(test_result$parameter, 1), ") = ", round(test_result$statistic, 1)) # Welch df can be non-integer
+             p_value_formatted <- format.pval(test_result$p.value, digits = 3, eps = 0.001)
+         }
+    }
+
+    if (is.null(test_result)) {
+        print("Statistical test failed to execute.")
+        return(list(Test=test_to_report, Variable_Pair=display_name, Statistic="Error: Test Failed", p_value="Error"))
+    }
+
+    return(list(Test=test_to_report, Variable_Pair=display_name, Statistic=statistic_string, p_value=p_value_formatted))
+}
+
+# --- Add Pre-Checks before running Bivariate tests ---
+print("--- Verifying variable status before Bivariate Analysis ---")
+bivariate_vars <- c("Diabetes_Status", "Physical_Activity", "Family_History_of_Diabetes",
+                   "Hypertension", "Diet", "Smoking", "BMI", "Fasting_Blood_Glucose")
+# Assuming 'diabetes_df' exists and is prepared from previous steps
+if(exists("diabetes_df") && is.data.frame(diabetes_df)){
+    for(v in bivariate_vars){
+         if (v %in% names(diabetes_df)) {
+             print(paste(v, "- Class:", class(diabetes_df[[v]])))
+             if(is.factor(diabetes_df[[v]])){
+                 print(paste("  Levels:", paste(levels(diabetes_df[[v]]), collapse=", "), "(N=", nlevels(diabetes_df[[v]]), ")"))
+                 print("  Table:")
+                 print(table(diabetes_df[[v]])) # Show counts per level
+             } else if (is.numeric(diabetes_df[[v]])) {
+                 print(paste("  Summary:", paste(round(summary(diabetes_df[[v]]), 2), collapse=" / ")))
+             }
+         } else {
+             print(paste(v, "- COLUMN NOT FOUND in diabetes_df."))
+         }
+    }
+} else {
+    print("ERROR: 'diabetes_df' dataframe not found or is not a dataframe before Bivariate Analysis.")
+    # Optional: Stop execution if diabetes_df is critical and missing
+    # stop("Execution halted: diabetes_df is required for Bivariate Analysis.")
+}
+print("--- End of Variable Verification ---")
+
+
+# --- Execute Bivariate Tests ---
+# Ensure results_list is re-initialized if running this section multiple times
+results_list <- list()
+
+# Run Chi-Squared tests (only if diabetes_df exists)
+if(exists("diabetes_df") && is.data.frame(diabetes_df)){
+    results_list <- c(results_list, list(run_chisq("Diabetes_Status", "Physical_Activity", "Diabetes_Status vs. Physical_Activity")))
+    results_list <- c(results_list, list(run_chisq("Diabetes_Status", "Family_History_of_Diabetes", "Diabetes_Status vs. Family_History_of_Diabetes")))
+    results_list <- c(results_list, list(run_chisq("Diabetes_Status", "Hypertension", "Diabetes_Status vs. Hypertension")))
+    results_list <- c(results_list, list(run_chisq("Diabetes_Status", "Diet", "Diabetes_Status vs. Diet")))
+    results_list <- c(results_list, list(run_chisq("Diabetes_Status", "Smoking", "Diabetes_Status vs. Smoking")))
+
+    # Run tests for continuous variables vs Diabetes_Status
+    results_list <- c(results_list, list(run_cont_vs_cat("BMI", "Diabetes_Status", "BMI by Diabetes_Status")))
+    results_list <- c(results_list, list(run_cont_vs_cat("Fasting_Blood_Glucose", "Diabetes_Status", "Fasting_Blood_Glucose by Diabetes_Status")))
+} else {
+    print("Skipping Bivariate Test execution because 'diabetes_df' is not available.")
+}
+
+
+# --- Combine Bivariate Results into Table 2 ---
+if (length(results_list) > 0) {
+    results_list_clean <- results_list[!sapply(results_list, is.null)]
+    if(length(results_list_clean) > 0) {
+        # Handle cases where some elements might not have all columns if errors occurred
+        # Ensure all elements are lists with the same names before rbind
+        expected_names <- c("Test", "Variable_Pair", "Statistic", "p_value")
+        results_list_formatted <- lapply(results_list_clean, function(item) {
+            # Ensure item is a list
+            if (!is.list(item)) item <- as.list(item)
+            # Check names and add NA if missing (more robust)
+            for (n in expected_names) {
+                if (!n %in% names(item)) {
+                    item[[n]] <- NA # Assign NA if a column is missing
+                }
+            }
+            # Ensure correct order - this might not be strictly necessary if names match
+             item <- item[match(expected_names, names(item))]
+             # Convert to data frame row for consistency
+             as.data.frame(item, stringsAsFactors = FALSE)
+        })
+
+        # Now rbind should work more reliably
+        table2_data <- do.call(rbind, results_list_formatted)
+
+        # Rename columns for final table display
+        names(table2_data) <- c("Test", "Variable Pair", "Statistic", "p-value")
+
+        print("--- Bivariate Analysis Table 2 ---")
+        print(table2_data)
+    } else {
+        print("Could not generate Table 2 data - all bivariate tests failed or returned NULL.")
+    }
+} else {
+    print("Could not generate Table 2 data - results list is empty.")
+}
+
+# --- End of Section 5 ---
+
+```
+
+The Chi-squared tests revealed several significant associations between diabetes status and categorical predictors. A strong and statistically significant relationship was found between having a family history of diabetes and being diagnosed with diabetes, indicating a potential hereditary component. Similarly, physical activity and dietary habits showed significant associations with diabetes status, suggesting that lifestyle factors play a key role. In contrast, no significant associations were found between diabetes status and either smoking or hypertension, implying that these factors may not be independently linked to diabetes within this sample. These results highlight the relevance of modifiable behaviors and family background in the context of diabetes risk.
+
+The results from the independent samples t-tests showed significant differences in both BMI and Fasting Blood Glucose between individuals with and without diabetes, with lower mean values observed in the non-diabetic group. However, assumptions of normality and homogeneity of variances were violated for both variables, as confirmed by Shapiro-Wilk and Levene’s tests (p < 0.001), indicating that the data were not normally distributed and had unequal variances. As a result, the Mann-Whitney U test was conducted as a non-parametric alternative, which also confirmed statistically significant differences (p < 0.001) in both variables by diabetes status, reinforcing the robustness of these findings across test types.
+
+
+# Multivariate Analysis (Logistic Regression)
+
+```{r}
+# --- 6. Multivariate Analysis (Logistic Regression - CORRECT for Binary Outcome) ---
+
+print("--- Running Multivariate Analysis (Logistic Regression) ---")
+# Ensure 'car' package is installed for VIF check: install.packages("car")
+library(car)
+
+# Define predictors and dependent variable
+predictors <- c("BMI", "Fasting_Blood_Glucose", "Physical_Activity", "Family_History_of_Diabetes", "Hypertension", "Diet", "Smoking")
+dependent_var <- "Diabetes_Status"
+required_glm_vars <- c(dependent_var, predictors)
+
+# --- Rigorous Final Pre-GLM Check (Similar to RF) ---
+print("--- Starting FINAL PRE-GLM Check & Fix ---")
+
+# Assuming 'diabetes_df' exists and is prepared from previous steps
+if(!exists("diabetes_df") || !is.data.frame(diabetes_df)){
+    stop("FATAL ERROR [PRE-GLM]: 'diabetes_df' dataframe not found or is not a dataframe.")
+}
+
+# 1. Check Existence in diabetes_df
+print("Checking variable existence in diabetes_df...")
+missing_glm_vars <- setdiff(required_glm_vars, names(diabetes_df))
+if(length(missing_glm_vars) > 0){
+    stop(paste("FATAL ERROR [PRE-GLM]: Required variables MISSING from diabetes_df:", paste(missing_glm_vars, collapse=", ")))
+} else {
+    print("All required GLM variables found in diabetes_df.")
+}
+
+# 2. Check Dependent Variable Type and Levels in diabetes_df
+print(paste("Checking", dependent_var, "in diabetes_df..."))
+if (!is.factor(diabetes_df[[dependent_var]])) {
+    print(paste("WARNING [PRE-GLM]:", dependent_var, "is NOT a factor. Attempting conversion NOW."))
+    # FORCE CONVERSION
+    diabetes_df[[dependent_var]] <- factor(diabetes_df[[dependent_var]])
+    if (!is.factor(diabetes_df[[dependent_var]])) {
+        stop(paste("FATAL ERROR [PRE-GLM]: FAILED to convert", dependent_var, "to factor."))
+    } else { print(paste("Conversion successful. New class:", class(diabetes_df[[dependent_var]]))) }
+} else { print(paste(dependent_var, "is already a factor.")) }
+
+# 3. Check Dependent Variable Levels (MUST be 2 for binomial GLM)
+current_levels <- levels(diabetes_df[[dependent_var]])
+num_levels <- length(current_levels)
+print(paste("Levels for", dependent_var, ":", paste(current_levels, collapse=", "), "(N=", num_levels, ")"))
+if (num_levels != 2) {
+    stop(paste("FATAL ERROR [PRE-GLM]:", dependent_var, "does not have exactly 2 levels for Logistic Regression. Found:", num_levels))
+} else { print(paste(dependent_var, "has exactly 2 levels. Check passed.")) }
+
+# 4. Set/Confirm Reference Level (Important for Odds Ratio Interpretation)
+# By default, R uses the first level alphabetically/numerically as reference (baseline)
+# Ensure 'Negative' (or your baseline) is the reference level if you want OR > 1 to mean increased odds of 'Positive'
+reference_level <- levels(diabetes_df[[dependent_var]])[1] # Get the current first level
+positive_level <- levels(diabetes_df[[dependent_var]])[2] # Get the second level (outcome)
+print(paste("Reference level for", dependent_var, "is:", reference_level))
+print(paste("Odds ratios will represent the odds of '", positive_level, "' vs '", reference_level, "'", sep=""))
+
+# Example: Uncomment and modify if you NEED to change the reference level
+# desired_reference <- "Negative" # Or your specific baseline category name
+# if(reference_level != desired_reference && desired_reference %in% current_levels){
+#    print(paste("Releveling", dependent_var, "to make '", desired_reference, "' the reference..."))
+#    diabetes_df[[dependent_var]] <- relevel(diabetes_df[[dependent_var]], ref = desired_reference)
+#    reference_level <- levels(diabetes_df[[dependent_var]])[1] # Update reference level
+#    positive_level <- levels(diabetes_df[[dependent_var]])[2] # Update positive level
+#    print(paste("New reference level:", reference_level))
+#    print(paste("Odds ratios will now represent the odds of '", positive_level, "' vs '", reference_level, "'", sep=""))
+# }
+
+# 5. Check Predictor Types (Factors are okay, glm handles dummy coding)
+print("Checking predictor variable types...")
+for(pred in predictors){
+    if(pred %in% names(diabetes_df)){ # Check if predictor exists
+        print(paste(" ", pred, "- Class:", class(diabetes_df[[pred]])))
+        if(!is.numeric(diabetes_df[[pred]]) && !is.factor(diabetes_df[[pred]])){
+             print(paste("  WARNING:", pred, "is neither numeric nor factor. GLM might handle unexpectedly or fail."))
+             # Optional: Attempt conversion if character
+             if(is.character(diabetes_df[[pred]])){
+                 print(paste("  Attempting factor conversion for", pred))
+                 diabetes_df[[pred]] <- factor(diabetes_df[[pred]])
+                 print(paste("  New Class:", class(diabetes_df[[pred]])))
+             }
+        } else if (is.factor(diabetes_df[[pred]])) {
+             print(paste("   Levels:", paste(levels(diabetes_df[[pred]]), collapse=", ")))
+        }
+    } else {
+         print(paste(" ", pred, "- WARNING: Predictor not found in diabetes_df (should have been caught earlier)."))
+    }
+}
+print("--- Finished FINAL PRE-GLM Check & Fix ---")
+
+
+# 6.1 Assumption Check: Multicollinearity
+print("Checking for Multicollinearity...")
+# Correlation for continuous predictors
+continuous_predictors <- intersect(predictors, names(diabetes_df)[sapply(diabetes_df, is.numeric)])
+if(length(continuous_predictors) >= 2){
+    print(" Correlation between Continuous Predictors:")
+    correlation_matrix <- cor(diabetes_df[, continuous_predictors, drop=FALSE], use = "pairwise.complete.obs")
+    print(round(correlation_matrix, 2))
+    # Check absolute correlation values excluding the diagonal
+    cor_values_off_diag <- abs(correlation_matrix[lower.tri(correlation_matrix)])
+    if(any(cor_values_off_diag > 0.8, na.rm=TRUE)) { print(" WARNING: High correlation (>0.8) detected between continuous predictors.") }
+    else { print(" Correlation between continuous predictors is acceptable (<0.8).") }
+} else { print(" Less than 2 continuous predictors, skipping correlation matrix.") }
+# Note: VIF check is done *after* fitting the model below.
+
+
+# 6.2 Prepare data subset FOR THE MODEL
+print("Preparing data subset for Logistic Regression model...")
+model_data <- diabetes_df[, required_glm_vars, drop = FALSE] # Select only needed columns
+model_data_complete <- na.omit(model_data) # Listwise deletion for missing data in model variables
+print(paste("Initial rows in diabetes_df:", nrow(diabetes_df)))
+print(paste("Rows available for GLM after na.omit on model variables:", nrow(model_data_complete)))
+
+# Check if enough data remains and if outcome still has 2 levels
+# Rule of thumb: Need >10-20 events (cases in the less frequent outcome category) per predictor variable
+min_outcome_freq <- min(table(model_data_complete[[dependent_var]]))
+num_predictors <- length(predictors)
+print(paste("Minimum frequency in outcome variable ('", names(which.min(table(model_data_complete[[dependent_var]]))), "'): ", min_outcome_freq, sep=""))
+print(paste("Number of predictors:", num_predictors))
+if (min_outcome_freq < (num_predictors * 10)) {
+    print(paste("WARNING: Low number of events per predictor variable (<10). Model results might be unstable."))
+}
+
+if(nrow(model_data_complete) > (num_predictors + 1)) { # Check if rows > parameters
+   final_levels_obj <- droplevels(model_data_complete[[dependent_var]])
+   if (nlevels(final_levels_obj) == 2) {
+       print("Running Logistic Regression model (glm)...")
+       # Create formula
+       model_formula_glm <- as.formula(paste(dependent_var, "~", paste(predictors, collapse = " + ")))
+       print("Using formula:")
+       print(model_formula_glm)
+
+       # Fit the model
+       logistic_model <- tryCatch({
+           glm(model_formula_glm, data = model_data_complete, family = binomial(link = "logit"))
+       }, error = function(e){
+           print(paste("ERROR running glm:", e$message))
+           # Common errors: complete separation (perfect prediction), singular matrix (perfect collinearity)
+           return(NULL)
+       })
+
+       # Process results if model fitting succeeded
+       if(!is.null(logistic_model)){
+           print("--- Logistic Regression Model Summary ---")
+           print(summary(logistic_model))
+
+           # Check VIF (after model is successfully fit)
+           print(" Checking Variance Inflation Factors (VIF)...")
+           # Ensure all predictors included in VIF check are appropriate (not outcome)
+           predictors_in_model_coef <- names(coef(logistic_model))[-1] # Get predictor names from model coefs, remove intercept
+           # Clean predictor names if they involve factor levels (e.g., remove 'Yes' suffix)
+           # This part can be complex depending on how factors are named
+           # Simple approach: assume base names match original predictors list for check
+           valid_predictors_for_vif <- predictors[predictors %in% attr(terms(logistic_model), "term.labels")]
+
+           if(length(valid_predictors_for_vif) > 1){ # VIF requires at least 2 predictors
+               vif_values <- tryCatch(vif(logistic_model), # Calculate VIF
+                                     error=function(e){ print(paste(" Could not calculate VIF:", e$message)); NULL})
+                if(!is.null(vif_values)){
+                     print("VIF Values:")
+                     print(round(vif_values, 2))
+                     # Check VIF thresholds
+                     if(any(vif_values > 10, na.rm = TRUE)){ print(" WARNING: VIF > 10 suggests potentially problematic multicollinearity.")}
+                     else if(any(vif_values > 5, na.rm = TRUE)){ print(" WARNING: VIF > 5 suggests moderate multicollinearity may be present.")}
+                     else {print(" VIF values appear acceptable (<5).")}
+                }
+           } else { print(" Skipping VIF check (less than 2 predictors remained in the final model or error).")}
+
+
+           # 6.3 Calculate Odds Ratios and Confidence Intervals
+           print("--- Odds Ratios (OR) and 95% Confidence Intervals (CI) ---")
+           tryCatch({
+               # Exponentiate coefficients and CIs
+               or_coef <- exp(coef(logistic_model))
+               # Use confint.default for potentially faster calculation on large models if profile likelihood is slow/fails
+               # or_confint <- exp(confint.default(logistic_model))
+               or_confint <- exp(confint(logistic_model)) # Uses profile likelihood by default
+
+               # Get p-values from summary
+               p_values <- summary(logistic_model)$coefficients[, "Pr(>|z|)"]
+
+               # Combine into a table, ensuring row alignment
+               coef_names <- names(or_coef)
+               or_table_data <- list(
+                   Predictor = coef_names,
+                   OddsRatio = round(or_coef, 3),
+                   CI_Lower = round(or_confint[coef_names, 1], 3), # Match by name
+                   CI_Upper = round(or_confint[coef_names, 2], 3), # Match by name
+                   pValue = round(p_values[coef_names], 4)         # Match by name
+               )
+               or_table <- as.data.frame(or_table_data)
+
+               # Format p-values nicely
+               or_table$pValueFormatted <- ifelse(or_table$pValue < 0.001, "<0.001", format(round(or_table$pValue, 3), nsmall=3))
+
+               # Display Table 3 (Logistic Regression Results)
+               print("--- Multivariate Analysis Table 3 (Logistic Regression ORs) ---")
+               # Optional: Exclude intercept for typical predictor table?
+               # print(or_table[or_table$Predictor != "(Intercept)", c("Predictor", "OddsRatio", "CI_Lower", "CI_Upper", "pValueFormatted")])
+               print(or_table[, c("Predictor", "OddsRatio", "CI_Lower", "CI_Upper", "pValueFormatted")]) # Include intercept
+
+               table3_data <- or_table # Assign for consistency
+
+           }, error=function(e){
+                print(paste("ERROR calculating/displaying Odds Ratios:", e$message))
+                # Try to get coefficient names even if CIs failed
+                coef_names_fallback <- tryCatch(names(coef(logistic_model)), error = function(e) predictors)
+                table3_data <- data.frame(Predictor=coef_names_fallback, OddsRatio=NA, CI_Lower=NA, CI_Upper=NA, pValueFormatted=NA)
+                print("--- Multivariate Analysis Table 3 (OR Error) ---")
+                print(table3_data)
+           })
+
+       } else { # glm model fitting returned NULL (error)
+            table3_data <- data.frame(Predictor=required_glm_vars[-1], OddsRatio=NA, CI_Lower=NA, CI_Upper=NA, pValueFormatted=NA) # Show predictors expected
+            print("--- Multivariate Analysis Table 3 (Model Failed) ---")
+            print(table3_data)
+       }
+   } else { # Not 2 levels after na.omit
+       stop(paste("FATAL ERROR [POST-NA.OMIT]:", dependent_var, "in model_data_complete does not have exactly 2 levels after na.omit. Cannot run Logistic Regression."))
+   }
+} else { # Not enough data after na.omit
+    print("Cannot run Logistic Regression model - insufficient complete cases after removing NAs for selected variables.")
+    table3_data <- data.frame(Predictor=predictors, OddsRatio=NA, CI_Lower=NA, CI_Upper=NA, pValueFormatted=NA)
+    print("--- Multivariate Analysis Table 3 (Insufficient Data) ---")
+    print(table3_data)
+}
+
+print("--- End of Section 6 (Logistic Regression) ---")
+```
+
+# Multivariate Analysis (Linear Regression)
+
+```{R}
+# --- 6. Multivariate Analysis (Linear Regression - but STATISTICALLY INAPPROPRIATE for Binary Outcome) ---
+
+# Define predictors and dependent variable
+predictors <- c("BMI", "Fasting_Blood_Glucose", "Physical_Activity", "Family_History_of_Diabetes", "Hypertension", "Diet", "Smoking")
+dependent_var <- "Diabetes_Status"
+required_lm_vars <- c(dependent_var, predictors)
+
+# --- Rigorous Final Pre-LM Check (Similar to RF/GLM) ---
+print("--- Starting FINAL PRE-LM Check & Fix ---")
+
+# 1. Check Existence in diabetes_df
+print("Checking variable existence in diabetes_df...")
+missing_lm_vars <- setdiff(required_lm_vars, names(diabetes_df))
+if(length(missing_lm_vars) > 0){
+    stop(paste("FATAL ERROR [PRE-LM]: Required variables MISSING from diabetes_df:", paste(missing_lm_vars, collapse=", ")))
+} else { print("All required LM variables found in diabetes_df.") }
+
+# 2. Check Dependent Variable Type for LM
+#    Technically, lm needs a numeric outcome. We need to convert the factor.
+print(paste("Checking", dependent_var, "in diabetes_df for LM..."))
+if (!is.factor(diabetes_df[[dependent_var]])) {
+    print(paste("WARNING [PRE-LM]:", dependent_var, "is NOT a factor. Assuming it might be 0/1 numeric or coercible..."))
+     # If character, convert to factor first then numeric
+     if(is.character(diabetes_df[[dependent_var]])){
+          diabetes_df[[dependent_var]] <- factor(diabetes_df[[dependent_var]])
+     }
+}
+# Convert the factor (must have 2 levels) to numeric (0/1)
+if (is.factor(diabetes_df[[dependent_var]])) {
+    num_levels <- nlevels(diabetes_df[[dependent_var]])
+    if(num_levels != 2){
+        stop(paste("FATAL ERROR [PRE-LM]: Cannot convert", dependent_var, "to numeric 0/1 for LM as it does not have 2 factor levels. Found:", num_levels))
+    }
+    print(paste("Converting", dependent_var, "factor to numeric (0/1) for LM..."))
+    print(paste(" Assuming level '", levels(diabetes_df[[dependent_var]])[1], "' = 0 and '", levels(diabetes_df[[dependent_var]])[2], "' = 1", sep=""))
+    diabetes_df[[dependent_var]] <- as.numeric(diabetes_df[[dependent_var]]) - 1 # Converts factor levels 1,2 to numeric 0,1
+    print(paste("Class after conversion:", class(diabetes_df[[dependent_var]])))
+    print("Summary of numeric outcome:")
+    print(summary(diabetes_df[[dependent_var]]))
+} else if (!is.numeric(diabetes_df[[dependent_var]])){
+     stop(paste("FATAL ERROR [PRE-LM]:", dependent_var, "is not factor or numeric, cannot use for LM."))
+} else {
+     print(paste(dependent_var, "is already numeric. Assuming it's coded appropriately (e.g., 0/1)."))
+     # Check range if already numeric
+     range_outcome <- range(diabetes_df[[dependent_var]], na.rm=TRUE)
+     if(!all(range_outcome %in% c(0,1)) && length(unique(na.omit(diabetes_df[[dependent_var]])))==2) {
+         print(paste(" WARNING [PRE-LM]: Numeric outcome range is", range_outcome[1], "-", range_outcome[2], ". Check if 0/1 coding is intended/correct."))
+     } else if (length(unique(na.omit(diabetes_df[[dependent_var]])))!=2){
+          print(paste(" WARNING [PRE-LM]: Numeric outcome does not seem to have exactly 2 unique values. Found:", length(unique(na.omit(diabetes_df[[dependent_var]])))))
+     }
+}
+
+# 3. Check Predictor Types (Factors are okay, lm handles dummy coding)
+print("Checking predictor variable types...")
+# (Same loop as in Logistic Regression to check predictors)
+for(pred in predictors){
+    print(paste(" ", pred, "- Class:", class(diabetes_df[[pred]])))
+    if(!is.numeric(diabetes_df[[pred]]) && !is.factor(diabetes_df[[pred]])){
+         print(paste("  WARNING:", pred, "is neither numeric nor factor. LM might handle unexpectedly or fail."))
+         if(is.character(diabetes_df[[pred]])){
+             print(paste("  Attempting factor conversion for", pred))
+             diabetes_df[[pred]] <- factor(diabetes_df[[pred]])
+         }
+    }
+}
+print("--- Finished FINAL PRE-LM Check & Fix ---")
+
+# 6.1 Assumption Check: Multicollinearity (Same as Logistic)
+print("Checking for Multicollinearity...")
+# Correlation for continuous predictors
+continuous_predictors <- intersect(predictors, names(diabetes_df)[sapply(diabetes_df, is.numeric)])
+if(length(continuous_predictors) >= 2){
+    print(" Correlation between Continuous Predictors:")
+    correlation_matrix <- cor(diabetes_df[, continuous_predictors, drop=FALSE], use = "pairwise.complete.obs")
+    print(round(correlation_matrix, 2))
+    if(any(abs(correlation_matrix[lower.tri(correlation_matrix)]) > 0.8)) { print(" WARNING: High correlation (>0.8) detected.") }
+} else { print(" Less than 2 continuous predictors, skipping correlation matrix.") }
+
+
+# 6.2 Prepare data subset FOR THE MODEL
+print("Preparing data subset for Linear Regression model...")
+model_data <- diabetes_df[, required_lm_vars, drop = FALSE]
+model_data_complete <- na.omit(model_data)
+print(paste("Initial rows:", nrow(diabetes_df), "-> Rows after selecting LM vars & na.omit:", nrow(model_data_complete)))
+
+
+# Check if enough data remains
+if(nrow(model_data_complete) > length(required_lm_vars) + 1) { # Need more rows than parameters
+   print("Running Linear Regression model (lm)...")
+   model_formula_lm <- as.formula(paste(dependent_var, "~", paste(predictors, collapse = " + ")))
+   print("Using formula:")
+   print(model_formula_lm)
+
+   linear_model <- tryCatch({
+       lm(model_formula_lm, data = model_data_complete)
+   }, error = function(e){
+       print(paste("ERROR running lm:", e$message))
+       return(NULL)
+   })
+
+   if(!is.null(linear_model)){
+       print("--- Linear Regression Model Summary ---")
+       print(summary(linear_model)) # R-squared here is likely misleading for binary outcome
+
+       # Check VIF
+       print(" Checking Variance Inflation Factors (VIF)...")
+       # (Same VIF check code as in Logistic Regression)
+       predictors_in_model <- names(coef(linear_model))[-1]
+       valid_predictors_for_vif <- intersect(predictors, predictors_in_model)
+       if(length(valid_predictors_for_vif) > 1){
+           vif_values <- tryCatch(vif(linear_model), error=function(e){ print(paste(" Could not calculate VIF:", e$message)); NULL})
+            if(!is.null(vif_values)){
+                 print(vif_values)
+                 if(any(vif_values > 5, na.rm = TRUE)){ print(" WARNING: VIF > 5 suggests moderate/high multicollinearity.")}
+                 if(any(vif_values > 10, na.rm = TRUE)){ print(" WARNING: VIF > 10 suggests high multicollinearity.")}
+            }
+       } else { print(" Skipping VIF check (less than 2 predictors in the final model or error).")}
+
+
+       # 6.3 Extract Coefficients and CIs (Interpretation is NOT Odds Ratios here)
+       print("--- Coefficients and 95% Confidence Intervals (CIs) ---")
+       # Note: These coefficients represent the change in the expected *numeric* outcome (0/1)
+       # for a one-unit change in the predictor, which is NOT a probability or odds change.
+       tryCatch({
+           lm_coef <- coef(linear_model)
+           lm_confint <- confint(linear_model) # Standard CIs for coefficients
+
+           # Combine into a table
+           lm_table <- data.frame(
+               Predictor = names(lm_coef),
+               Coefficient = round(lm_coef, 3),
+               CI_Lower = round(lm_confint[, 1], 3),
+               CI_Upper = round(lm_confint[, 2], 3),
+               pValue = round(summary(linear_model)$coefficients[, "Pr(>|t|)"], 3) # Note: Pr(>|t|)
+           )
+           lm_table$pValueFormatted <- ifelse(lm_table$pValue < 0.001, "<0.001", format(lm_table$pValue, digits=3))
+
+           # Display Table 3 (Linear Regression Results - Use with Caution)
+           print("--- Multivariate Analysis Table 3 (Linear Regression Coefficients - INTERPRET WITH CAUTION) ---")
+           print(lm_table[, c("Predictor", "Coefficient", "CI_Lower", "CI_Upper", "pValueFormatted")])
+
+           table3_data <- lm_table # Assign for consistency
+
+           # Optional: Check residuals (will likely violate assumptions)
+           # plot(linear_model)
+
+       }, error=function(e){
+            print(paste("ERROR calculating/displaying Coefficients:", e$message))
+            table3_data <- data.frame(Predictor=names(coef(linear_model)), Coefficient=NA, CI_Lower=NA, CI_Upper=NA, pValueFormatted=NA)
+            print("--- Multivariate Analysis Table 3 (Coefficient Error) ---")
+            print(table3_data)
+       })
+
+   } else { # lm failed
+        table3_data <- data.frame(Predictor=required_lm_vars[-1], Coefficient=NA, CI_Lower=NA, CI_Upper=NA, pValueFormatted=NA)
+        print("--- Multivariate Analysis Table 3 (Model Failed) ---")
+        print(table3_data)
+   }
+} else { # Not enough data after na.omit
+    print("Cannot run Linear Regression model - insufficient complete cases after removing NAs for selected variables.")
+    table3_data <- data.frame(Predictor=predictors, Coefficient=NA, CI_Lower=NA, CI_Upper=NA, pValueFormatted=NA)
+    print("--- Multivariate Analysis Table 3 (Insufficient Data) ---")
+    print(table3_data)
+}
+
+print("--- End of Section 6 (Linear Regression - Inappropriate Method) ---")
+
+```
+
+
+# Multivariate Analysis (Random Forest)
+```{r}
+
+# --- 6. Multivariate Analysis (Random Forest) ---
+
+print("--- Running Multivariate Analysis (Random Forest) ---")
+
+# Define predictors and dependent variable
+predictors <- c("BMI", "Fasting_Blood_Glucose", "Physical_Activity", "Family_History_of_Diabetes", "Hypertension", "Diet", "Smoking")
+dependent_var <- "Diabetes_Status"
+required_rf_vars <- c(dependent_var, predictors)
+
+# --- !!! RIGOROUS FINAL PRE-RF CHECK !!! ---
+print("--- Starting FINAL PRE-RF Check & Fix ---")
+
+# 1. Check Existence in diabetes_df
+print("Checking variable existence in diabetes_df...")
+missing_rf_vars <- setdiff(required_rf_vars, names(diabetes_df))
+if(length(missing_rf_vars) > 0){
+    stop(paste("FATAL ERROR [PRE-RF]: The following required RF variables are MISSING from diabetes_df:", paste(missing_rf_vars, collapse=", ")))
+} else {
+    print("All required RF variables found in diabetes_df.")
+}
+
+# 2. Check Dependent Variable Type and Levels in diabetes_df
+print(paste("Checking", dependent_var, "in diabetes_df..."))
+if (!is.factor(diabetes_df[[dependent_var]])) {
+    print(paste("WARNING [PRE-RF]:", dependent_var, "is NOT a factor in diabetes_df. Class:", class(diabetes_df[[dependent_var]]), ". Attempting conversion NOW."))
+    # FORCE CONVERSION
+    diabetes_df[[dependent_var]] <- factor(diabetes_df[[dependent_var]])
+    if (!is.factor(diabetes_df[[dependent_var]])) {
+        stop(paste("FATAL ERROR [PRE-RF]: FAILED to convert", dependent_var, "to factor."))
+    } else {
+        print(paste("Conversion successful. New class:", class(diabetes_df[[dependent_var]])))
+    }
+} else {
+    print(paste(dependent_var, "is already a factor in diabetes_df."))
+}
+
+# 3. Check Dependent Variable Levels in diabetes_df AFTER ensuring it's a factor
+current_levels <- levels(diabetes_df[[dependent_var]])
+num_levels <- length(current_levels)
+print(paste("Levels for", dependent_var, "in diabetes_df:", paste(current_levels, collapse=", "), "(N=", num_levels, ")"))
+if (num_levels != 2) {
+    stop(paste("FATAL ERROR [PRE-RF]:", dependent_var, "in diabetes_df does not have exactly 2 levels. Found", num_levels, "levels:", paste(current_levels, collapse=", ")))
+} else {
+    print(paste(dependent_var, "has exactly 2 levels in diabetes_df. Check passed."))
+}
+print("--- Finished FINAL PRE-RF Check & Fix ---")
+
+
+# 6.1 Check predictor correlation (between continuous vars)
+continuous_predictors <- intersect(predictors, c("BMI", "Fasting_Blood_Glucose"))
+if(length(continuous_predictors) >= 2 && all(sapply(diabetes_df[,continuous_predictors, drop=FALSE], is.numeric))){ # Added drop=FALSE
+    print("Checking correlation between continuous predictors...")
+    correlation_matrix <- cor(diabetes_df[, continuous_predictors, drop=FALSE], use = "pairwise.complete.obs")
+    print(round(correlation_matrix, 2))
+    if(any(abs(correlation_matrix[lower.tri(correlation_matrix)]) > 0.8)) {
+        print("WARNING: High correlation (>0.8) detected.")
+    } else {
+        print("Correlation between continuous predictors is acceptable (<0.8).")
+    }
+} else {
+    print("Correlation check skipped or failed (need >=2 numeric specified predictors).")
+}
+
+
+# 6.2 Check Outcome Balance (already checked levels above)
+print("Outcome Variable Balance (Diabetes_Status in diabetes_df):")
+print(round(prop.table(table(diabetes_df[[dependent_var]])), 3))
+
+
+# 6.3 Prepare data FOR THE MODEL and run RF
+print("Preparing data subset for Random Forest model...")
+# Select only needed columns
+model_data <- diabetes_df[, required_rf_vars, drop = FALSE] # Use drop=FALSE for safety
+
+print("Structure of model_data (Selected Columns):")
+str(model_data)
+
+# Remove rows with NA in ANY of the selected columns
+model_data_complete <- na.omit(model_data)
+print(paste("Initial rows:", nrow(diabetes_df), "-> Rows after selecting RF vars & na.omit:", nrow(model_data_complete)))
+
+# --- !!! POST na.omit CHECK !!! ---
+if(nrow(model_data_complete) > 0) {
+    print(paste("Checking", dependent_var, "in model_data_complete (POST na.omit)..."))
+    if(!dependent_var %in% names(model_data_complete)){
+         stop(paste("FATAL ERROR [POST-NA.OMIT]:", dependent_var, "is MISSING from model_data_complete!"))
+    }
+    if (!is.factor(model_data_complete[[dependent_var]])) {
+        stop(paste("FATAL ERROR [POST-NA.OMIT]:", dependent_var, "is NOT a factor in model_data_complete. Class:", class(model_data_complete[[dependent_var]])))
+    }
+    # Use droplevels in case na.omit removed all instances of one level
+    final_levels_obj <- droplevels(model_data_complete[[dependent_var]])
+    final_levels <- levels(final_levels_obj)
+    num_final_levels <- length(final_levels)
+    print(paste("Levels for", dependent_var, "in model_data_complete:", paste(final_levels, collapse=", "), "(N=", num_final_levels, ")"))
+    if (num_final_levels != 2) {
+        stop(paste("FATAL ERROR [POST-NA.OMIT]:", dependent_var, "in model_data_complete does not have exactly 2 levels after na.omit. Found", num_final_levels, ". This likely means na.omit removed all instances of one category."))
+    } else {
+         print(paste(dependent_var, "has exactly 2 levels in model_data_complete. Check passed."))
+    }
+} else {
+    print("Skipping POST na.omit check because model_data_complete has 0 rows.")
+}
+# --- END POST na.omit CHECK ---
+
+# Check if enough data remains and run model
+if(nrow(model_data_complete) > 10) { # Need some reasonable number of rows
+   print("Running Random Forest model...")
+   # Define formula using the checked dependent_var name
+   model_formula_rf <- as.formula(paste(dependent_var, "~", paste(predictors, collapse = " + ")))
+   print("Using formula:")
+   print(model_formula_rf)
+
+   rf_model <- tryCatch({
+       randomForest(model_formula_rf, data = model_data_complete, ntree = 500, importance = TRUE)
+   }, error = function(e){
+       print(paste("ERROR running randomForest:", e$message))
+       return(NULL)
+   })
+
+   if(!is.null(rf_model)){
+       print("Random Forest Model Summary:")
+       print(rf_model)
+
+       # 6.4 Get Feature Importance
+       print("Feature Importance (Mean Decrease Gini):")
+       importance_scores <- tryCatch(importance(rf_model, type = 2), error=function(e) NULL)
+       if(!is.null(importance_scores)){
+           importance_df <- data.frame(
+               Predictor = rownames(importance_scores),
+               MeanDecreaseGini = importance_scores[, "MeanDecreaseGini"]
+             ) %>%
+             arrange(desc(MeanDecreaseGini)) %>%
+             mutate(Rank = row_number())
+           table3_data <- importance_df %>%
+                           select(Predictor, MeanDecreaseGini, Rank) %>%
+                           mutate(MeanDecreaseGini = round(MeanDecreaseGini, 1))
+           print("--- Multivariate Analysis Table 3 ---")
+           print(table3_data)
+           # Optional: varImpPlot(rf_model)
+       } else {
+           print("Could not extract feature importance.")
+           table3_data <- data.frame(Predictor=predictors, MeanDecreaseGini=NA, Rank=NA)
+           print("--- Multivariate Analysis Table 3 (Importance Error) ---")
+           print(table3_data)
+       }
+   } else {
+        table3_data <- data.frame(Predictor=predictors, MeanDecreaseGini=NA, Rank=NA)
+        print("--- Multivariate Analysis Table 3 (Model Failed) ---")
+        print(table3_data)
+   }
+} else {
+    print("Cannot run Random Forest model - insufficient complete cases (<11) after removing NAs for selected variables.")
+    table3_data <- data.frame(Predictor=predictors, MeanDecreaseGini=NA, Rank=NA)
+    print("--- Multivariate Analysis Table 3 (Insufficient Data) ---")
+    print(table3_data)
+}
+
+print("--- End of Section 6 ---")
+
+```
+
+
+# Visualizations
+```{r}
+# 4.3 Visualizations 
+# Box plot for BMI
+ggplot(diabetes_df, aes(x = Diabetes_Status, y = BMI, fill = Diabetes_Status)) +
+  geom_boxplot() +
+  labs(title = "BMI Distribution by Diabetes Status", x = "Diabetes Status", y = "BMI (kg/m²)") +
+  theme_minimal()
+# ggsave("boxplot_bmi.png") # Optional save
+
+# Box plot for Glucose
+ggplot(diabetes_df, aes(x = Diabetes_Status, y = Fasting_Blood_Glucose, fill = Diabetes_Status)) +
+  geom_boxplot() +
+  labs(title = "Fasting Blood Glucose Distribution by Diabetes Status", x = "Diabetes Status", y = "Fasting Blood Glucose (mg/dL)") +
+  theme_minimal()
+# ggsave("boxplot_glucose.png") # Optional save
+
+
+# Bar plot for Family History
+ggplot(diabetes_df, aes(x = Family_History_of_Diabetes, fill = Diabetes_Status)) +
+  geom_bar(position = "fill") + # Use position="fill" for proportions
+  labs(title = "Proportion with Diabetes by Family History", x = "Family History of Diabetes", y = "Proportion", fill = "Diabetes Status") +
+  scale_y_continuous(labels = scales::percent) +
+  theme_minimal()
+```
+The box plot evaluation of BMI between patients who have diabetes and those without shows the direct relationship between body mass and diabetic status. A notable upward displacement of BMI values distinguished the entire distribution of 'Positive' diabetes from the 'Negative' diabetes group. The elevated status of median BMI and interquartile range in the box plot suggests diabetes patients within this sample had a tendency for higher body mass index on average.
+
+A greater difference emerged from the fasting blood glucose box plot analysis. Research data via the plot showed that participants with 'Positive' diabetes status exhibited elevated fasting glucose concentrations. Visual inspection reveals how the 'Positive' group's box and whiskers distribution stood at a higher position on the y-axis featuring extended whiskers which indicates more variable distribution compared to the 'Negative' group to display increased fasting glucose-diabetes connection strength.
+
+The stacked bar plot presented in the figure effectively showed how family history affects diabetes. The proportion of people with positive diabetes status measurements who had family members with diabetes exceeded those who did not have family members with diabetes. This chart demonstrates that a greater proportion of individuals who had family members with diabetes received diagnostic results compared to those without family history of diabetes thus strengthening the evidence of an extensive correlation between family history and diabetes diagnosis in this research data.
+
+
+# Conclusion
+
+The research team evaluated information from 3,000 participants to establish important risk elements connected to diabetes through the combination of Logistic Regression and Random Forest modeling methods. Moving past data cleaning and descriptive and bivariate analysis the multivariate models produced important insights about factors that best distinguish diabetic from non-diabetic individuals.
+
+Fasting Blood Glucose when elevated along with BMI elevated values and family history of diabetes increased the likelihood of diabetes and physical activity coupled with better nutrition reduced such risk. The impact of Smoking and Hypertension on the diagnostic outcome was smaller in comparison to other factors. Forest Random Model analysis verified Fasting Blood Glucose, Family History and BMI as leading variables which strongly impact prediction results.
+
+These models demonstrated that metabolic elements and genetic predispositions should be acknowledged as main factors yet confirmed how lifestyle variables impact diabetes development. The findings indicate that scientists should focus on monitoring glucose levels and managing weight and understanding family risks for diabetes assessment while working to promote healthy habits among patients.
